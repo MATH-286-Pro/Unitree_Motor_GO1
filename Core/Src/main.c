@@ -46,7 +46,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-// 宏定义 不要加";" 要不然会报错
 #define PI 3.1415926535f
 #define DGR2RAD PI/180
 /* USER CODE END PD */
@@ -151,7 +150,7 @@ int main(void)
       Motor_GO1_send.W=0;
       Motor_GO1_send.Pos=0;
       Motor_GO1_send.K_P=0;
-      Motor_GO1_send.K_W=0.05;
+      Motor_GO1_send.K_W=0.01; //原先为0.05
 
   while (1)
   {
@@ -168,7 +167,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
     // 宇树GO1电机
-    Motor_GO1_send.W = STOP*DT7_pram->rc.ch[1]/660*20; // 速度
+    Motor_GO1_send.W = (float) STOP*DT7_pram->rc.ch[1]/660*40; // 速度
     SERVO_Send_recv(&Motor_GO1_send, &Motor_GO1_recv);	//将控制指令发送给电机，同时接收返回值
 
  
