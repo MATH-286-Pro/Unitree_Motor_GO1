@@ -66,7 +66,7 @@ modules/bsp_rc.c \
 modules/OLED.c \
 modules/motor_A1/motor_A1.c \
 modules/motor_A1/CRC.c \
-modules/motor_A1_GO1/GO-M8010-6.c \
+modules/motor_GO1/GO-M8010-6.c \
 Core/Src/usart.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c \
 Core/Src/dma.c \
@@ -137,7 +137,7 @@ C_INCLUDES =  \
 -IDrivers/CMSIS/Include \
 -Imodules \
 -Imodules/motor_A1 \
--Imodules/motor_A1_GO1 
+-Imodules/motor_GO1 
 
 
 # compile gcc flags

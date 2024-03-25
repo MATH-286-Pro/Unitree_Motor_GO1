@@ -34,6 +34,8 @@
 #include "bsp_rc.h"
 #include "OLED.h"
 #include "motor_A1.h"
+#include "motor_control.h" //GO1电机
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +60,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const RC_ctrl_t* DT7_pram; //遥控器控制结构体
+//遥控器控制结构体
+const RC_ctrl_t* DT7_pram; 
+
+// 宇树GO1电机
+MOTOR_send Motor_GO1_send;   //以全局变量声明电机控制结构体和电机数据结构体，方便在故障时通过debug查看变量值
+MOTOR_recv Motor_GO1_recv;
 
 /* USER CODE END PV */
 
@@ -112,7 +119,6 @@ int main(void)
   // MX_CAN1_Init() 功能：配置CAN1参数 + 打开NVIC + 打开GPIO
 
   //自定义 初始化 开始 ----------------------------------------------------------------
-  HAL_Delay(1000);       // 延时1s 防止电机没上电先初始化现象
   int i = 0;
   OLED_init();           // OLED初始化
   OLED_clear();          OLED_printf(i/20,i%20,"#");  OLED_refresh_gram(); i++; // OLED清屏
@@ -127,12 +133,6 @@ int main(void)
   HAL_Delay(100);                           // 延时0.1s
   HAL_TIM_PWM_Stop(&htim4,TIM_CHANNEL_3);   // 关闭TIM4 PWM
 
-  MI_Motor_s MI_Motor_ID1;                  // 定义小米电机结构体1
-  MI_Motor_s MI_Motor_ID2;                  // 定义小米电机结构体2
-  MI_motor_Init(&MI_Motor_ID1,&MI_CAN_1,1); // 将MI_CAN_1，1传入小米结构体 
-  MI_motor_Init(&MI_Motor_ID2,&MI_CAN_1,2); // 将MI_CAN_2，2传入小米结构体 
-  MI_motor_Enable(&MI_Motor_ID1);           // 通过发送小米结构体 data=00000000 电机使能
-  MI_motor_Enable(&MI_Motor_ID2);           // 通过发送小米结构体 data=00000000 电机使能
   OLED_clear();
   //自定义 初始化 结束 ----------------------------------------------------------------
 
@@ -141,15 +141,23 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
       OLED_show_string(0,0,"S1 = ");   OLED_show_string(0,10,"S0 = "); 
-      OLED_show_string(2,0,"CH2= ");   OLED_show_string(2,10,"CH1= ");
-      OLED_show_string(3,0,"CH3= ");   OLED_show_string(3,10,"CH0= ");
+      OLED_show_string(2,0,"CH2= ");   OLED_show_string(2,10,"CH0= ");
+      OLED_show_string(3,0,"CH3= ");   OLED_show_string(3,10,"CH1= ");
+
+      // 配置GO1电机
+      Motor_GO1_send.id=0; 			//给电机控制指令结构体赋值
+      Motor_GO1_send.mode=1;
+      Motor_GO1_send.T=0;
+      Motor_GO1_send.W=0;
+      Motor_GO1_send.Pos=0;
+      Motor_GO1_send.K_P=0;
+      Motor_GO1_send.K_W=0.05;
 
   while (1)
   {
     DT7_pram = get_remote_control_point(); // 获取遥控器控制结构体
     uint8_t STOP = DT7_pram->rc.s[1]/2;    // 跟踪遥控器开关 S[1]左 S[0]右 状态  // 上1 中3 下2
                                            
-
     // 跟踪遥控器4个通道参数
     OLED_show_num(0,5,(uint8_t) DT7_pram->rc.s[1]/2,1);  OLED_show_num(0,15,(uint8_t) DT7_pram->rc.s[0]/2,1);
     OLED_show_signednum(2,5,DT7_pram->rc.ch[2],3);       OLED_show_signednum(2,15,DT7_pram->rc.ch[0],3);
@@ -159,32 +167,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    // 宇树A1电机控制
-    // A1_Motor_Speed_Control(0,(float) DT7_pram->rc.ch[0]/660*10); // 该函数使用 UART1 发送
-    // HAL_Delay(2); 
-    // A1_Motor_Speed_Control(1,(float) DT7_pram->rc.ch[2]/660*10); // 该函数使用 UART1 发送
-    // A1_Motor_Speed_Control(1,(float) 5.0f); // 该函数使用 UART1 发送
-    // HAL_Delay(2); 
+    // 宇树GO1电机
+    Motor_GO1_send.W = STOP*DT7_pram->rc.ch[1]/660*20; // 速度
+    SERVO_Send_recv(&Motor_GO1_send, &Motor_GO1_recv);	//将控制指令发送给电机，同时接收返回值
 
-    // 宇树A1电机 位置模式
-    // 输入(1)*360*DGR2RAD*9.1f = 减速后 360°
-    A1_Motor_Position_Control(0,(float) STOP*DT7_pram->rc.ch[2]/660*360*DGR2RAD*9.1f); // 该函数使用 UART1 发送
-    HAL_Delay(1);
-
-    // 宇树A1电机 力矩模式
-    // 官方建议开始值 0.05f
-    // 发热非常明显
-    // A1_Motor_Torque_Control(1,(float) STOP*DT7_pram->rc.ch[2]/660*10); // 该函数使用 UART1 发送
-    // A1_Motor_Torque_Control(1,(float) 0.05f); // 该函数使用 UART1 发送
-    // HAL_Delay(1);
-
-    // 宇树A1电机 0力矩模式
-    // A1_Motor_0Torque_Control(0xBB); 
-    // HAL_Delay(1);
-
-    // 小米电机控制
-    MI_motor_SpeedControl(&MI_Motor_ID1,(float) STOP*DT7_pram->rc.ch[1]/33,1); // 使用 (float) 强制转换
-    MI_motor_SpeedControl(&MI_Motor_ID2,(float) STOP*DT7_pram->rc.ch[3]/33,1);
+ 
   }
   /* USER CODE END 3 */
 }
